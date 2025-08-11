@@ -1,24 +1,30 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Check, Calendar, Settings as SettingsIcon, RotateCcw, BookOpenText, Flame, Plus, Minus } from "lucide-react";
 
+// =====================
+// Helpers & Constants
+// =====================
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 const fmt = (d) => d.toISOString().slice(0, 10);
 const todayKey = () => fmt(new Date());
+const wrap604 = (n) => (((n - 1) % 604) + 604) % 604 + 1; // circular 1..604
+
+// Madani juz start pages (approx.)
+const JUZ_START_PAGES = [
+  1, 22, 42, 62, 82, 102, 121, 142, 162, 182,
+  201, 222, 242, 262, 282, 302, 322, 342, 362, 382,
+  402, 422, 442, 462, 482, 502, 522, 542, 562, 582,
+];
+const juzSpan = (j) => {
+  const start = JUZ_START_PAGES[j - 1];
+  const end = j === 30 ? 604 : JUZ_START_PAGES[j] - 1;
+  return { start, end };
+};
 
 const defaultSettings = {
   targetReadsForPrep: 3,
-  reviewWindowPages: 20,
-  theme: "auto",
+  theme: "light", // light | dark | nabawi | kaaba
 };
-
-const TASKS = [
-  { id: "readJuz", label: "قراءة الجزء المحدد", icon: BookOpenText, type: "juz" },
-  { id: "prepNextWeek", label: "التحضير للأسبوع القادم: قراءة 7 صفحات من القادم", icon: Calendar },
-  { id: "reviewLastWeek", label: "مراجعة 7 صفحات التي حُفِظت الأسبوع الماضي", icon: RotateCcw },
-  { id: "memorizeToday", label: "حفظ الصفحة المحددة لليوم", icon: Check, type: "page" },
-  { id: "prepTomorrow", label: "تهيئة صفحة الغد قبل النوم (3–10 مرات)", icon: Calendar, isCounter: true, type: "page" },
-  { id: "reviewRecent20", label: "مراجعة الصفحات الحديثة (آخر ~20)", icon: RotateCcw, type: "pageRange" },
-  { id: "reviewOldJuz", label: "مراجعة جزء قديم (~20 صفحة)", icon: RotateCcw, type: "juz" },
-];
 
 function useLocalStorage(key, initialValue) {
   const [value, setValue] = useState(() => {
@@ -38,216 +44,395 @@ function useLocalStorage(key, initialValue) {
 function ProgressBar({ value }) {
   return (
     <div className="w-full h-3 bg-gray-200 dark:bg-gray-800 rounded-xl overflow-hidden">
-      <div className="h-full bg-green-500" style={{ width: `${Math.min(100, Math.max(0, value))}%` }} />
+      <div className="h-full bg-green-600" style={{ width: `${Math.min(100, Math.max(0, value))}%` }} />
     </div>
   );
 }
 
 function Card({ children, className = "" }) {
-  return (
-    <div className={`rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800 p-4 bg-white/70 dark:bg-gray-900/70 backdrop-blur ${className}`}>
-      {children}
-    </div>
-  );
+  return <div className={`rounded-2xl shadow-sm border p-4 ${className}`}>{children}</div>;
 }
 
-export default function QuranMemorizerApp() {
-  const [settings, setSettings] = useLocalStorage("qm.settings.v1", defaultSettings);
-  const [dayLog, setDayLog] = useLocalStorage("qm.daylog.v1", {});
-  const [streak, setStreak] = useLocalStorage("qm.streak.v1", { current: 0, best: 0, lastDate: null });
-  const [showSettings, setShowSettings] = useState(false);
-  const [taskSelections, setTaskSelections] = useLocalStorage("qm.taskSelections.v1", {});
+function themeClasses(theme) {
+  switch (theme) {
+    case "dark":
+      return {
+        name: "dark",
+        page: "bg-gray-900 text-white",
+        card: "border-gray-800 bg-gray-900/60",
+        input: "bg-gray-900 text-white border-gray-700",
+        button: "border-gray-700 hover:bg-gray-800",
+        rowDone: "bg-emerald-900/30 border-emerald-600",
+        chipOn: "bg-emerald-800 text-emerald-100 border-emerald-600",
+      };
+    case "nabawi":
+      return {
+        name: "nabawi",
+        page: "bg-[#F5EFE3] text-[#0f2e1f]", // warm cream
+        card: "border-[#9db59c] bg-white/90",
+        input: "bg-white text-[#0f2e1f] border-[#9db59c]",
+        button: "border-[#9db59c] hover:bg-[#EAF1E6]",
+        rowDone: "bg-[#EAF7E9] border-[#8CCB94]",
+        chipOn: "bg-[#DFF1E0] text-[#0f2e1f] border-[#8CCB94]",
+      };
+    case "kaaba":
+      return {
+        name: "kaaba",
+        page: "bg-[#0a0a0a] text-[#f5f2e8]", // deep black + gold accents
+        card: "border-[#3d2f12] bg-[#111111]/85",
+        input: "bg-[#111111] text-[#f5f2e8] border-[#5b4519]",
+        button: "border-[#8a6d2f] hover:bg-[#1a1a1a]",
+        rowDone: "bg-[#141008] border-[#c9a227]",
+        chipOn: "bg-[#c9a227] text-black border-[#c9a227]",
+      };
+    default:
+      return {
+        name: "light",
+        page: "bg-white text-black",
+        card: "border-gray-200 bg-white",
+        input: "bg-white text-black border-gray-300",
+        button: "border-gray-300 hover:bg-gray-100",
+        rowDone: "bg-green-50 border-green-300",
+        chipOn: "bg-emerald-100 text-emerald-900 border-emerald-300",
+      };
+  }
+}
 
+// =====================
+// Main Component
+// =====================
+export default function QuranMemorizerApp() {
+  const [settings, setSettings] = useLocalStorage("qm.settings.v5", defaultSettings);
+  const [dayLog, setDayLog] = useLocalStorage("qm.daylog.v5", {});
+  const [streak, setStreak] = useLocalStorage("qm.streak.v5", { current: 0, best: 0, lastDate: null });
+  const [showSettings, setShowSettings] = useState(false);
+  const [todayPage, setTodayPage] = useLocalStorage("qm.todayPage.v5", null);
+
+  const t = themeClasses(settings.theme);
   const today = todayKey();
   const log = dayLog[today] || {};
 
-  const completedCount = TASKS.reduce((acc, t) => acc + (log?.[t.id]?.done ? 1 : 0), 0);
-  const progress = (completedCount / TASKS.length) * 100;
+  // Derived values
+  const hasPage = Number.isInteger(todayPage) && todayPage >= 1 && todayPage <= 604;
+  const prevPages = useMemo(() => hasPage ? Array.from({ length: 7 }, (_, i) => wrap604(todayPage - 7 + i)) : [], [hasPage, todayPage]);
+  const nextPages = useMemo(() => hasPage ? Array.from({ length: 7 }, (_, i) => wrap604(todayPage + 1 + i)) : [], [hasPage, todayPage]);
+  const tomorrowPage = hasPage ? wrap604(todayPage + 1) : null;
+  const recent20 = useMemo(() => hasPage ? Array.from({ length: 20 }, (_, i) => wrap604(todayPage - 19 + i)) : [], [hasPage, todayPage]);
 
-  function toggleTask(id) {
-    setDayLog(prev => {
-      const day = { ...(prev[today] || {}) };
-      const entry = day[id] || { done: false, count: 0 };
-      entry.done = !entry.done;
-      day[id] = entry;
-      const updated = { ...prev, [today]: day };
-      const allDone = TASKS.every(t => (updated[today]?.[t.id]?.done));
-      if (allDone) {
-        const prevDate = streak.lastDate;
-        const yesterday = fmt(new Date(Date.now() - 24*60*60*1000));
-        const newCurrent = prevDate === yesterday ? streak.current + 1 : 1;
-        const newBest = Math.max(streak.best, newCurrent);
-        setStreak({ current: newCurrent, best: newBest, lastDate: today });
+  const SAB7 = ["السجدة", "يس", "الدخان", "الواقعة", "الملك", "الإنسان", "البروج"];
+
+  const tasks = [
+    {
+      id: "readJuz",
+      label: "قراءة الجزء اليومي",
+      enabled: true,
+      extra: (
+        <div className="flex flex-col gap-1">
+          <NumberInput cls={t.input} min={1} max={30} value={log.readJuz?.juz ?? ""} onChange={(v) => setField("readJuz", "juz", v)} />
+          <small className="opacity-70">
+            {log.readJuz?.juz ? `الجزء ${log.readJuz.juz} — الصفحات ${juzSpan(log.readJuz.juz).start}–${juzSpan(log.readJuz.juz).end}` : "اختر الجزء لعرض نطاق الصفحات"}
+          </small>
+        </div>
+      ),
+    },
+    {
+      id: "memorizeToday",
+      label: "حفظ صفحة اليوم",
+      enabled: true,
+      extra: (
+        <NumberInput cls={t.input} min={1} max={604} placeholder="1–604" value={todayPage ?? ""} onChange={(v) => setTodayPage(v ? clamp(v, 1, 604) : null)} />
+      ),
+    },
+    {
+      id: "reviewLast7",
+      label: hasPage ? `مراجعة الصفحات: ${prevPages.join("، ")}` : "مراجعة الصفحات السابقة (اختر صفحة أولاً)",
+      enabled: hasPage,
+    },
+    {
+      id: "prepNext7",
+      label: hasPage ? `تحضير الصفحات: ${nextPages.join("، ")}` : "تحضير الصفحات القادمة (اختر صفحة أولاً)",
+      enabled: hasPage,
+    },
+    {
+      id: "prepTomorrow",
+      label: hasPage ? `تهيئة صفحة الغد (${tomorrowPage}) (3–10 مرات)` : "تهيئة صفحة الغد (اختر صفحة أولاً)",
+      enabled: hasPage,
+      counter: true,
+    },
+    {
+      id: "reviewRecent20",
+      label: hasPage ? `مراجعة الصفحات الحديثة (20): ${recent20.join("، ")}` : "مراجعة الصفحات الحديثة (اختر صفحة أولاً)",
+      enabled: hasPage,
+    },
+    {
+      id: "reviewOldJuz",
+      label: "مراجعة جزء قديم",
+      enabled: true,
+      extra: (
+        <div className="flex flex-col gap-1">
+          <NumberInput cls={t.input} min={1} max={30} value={log.reviewOldJuz?.juz ?? ""} onChange={(v) => setField("reviewOldJuz", "juz", v)} />
+          <small className="opacity-70">
+            {log.reviewOldJuz?.juz ? `الجزء ${log.reviewOldJuz.juz} — الصفحات ${juzSpan(log.reviewOldJuz.juz).start}–${juzSpan(log.reviewOldJuz.juz).end}` : "اختر الجزء لعرض نطاق الصفحات"}
+          </small>
+        </div>
+      ),
+    },
+    {
+      id: "sabAlMunajiyat",
+      label: "قراءة السبع المنجيات",
+      enabled: true,
+      subtasks: SAB7,
+    },
+  ];
+
+  // Completion counts (subtasks count individually)
+  function getCompletionCounts(state) {
+    let total = 0, done = 0;
+    for (const tsk of tasks) {
+      if (!tsk.enabled) continue;
+      if (tsk.subtasks) {
+        tsk.subtasks.forEach((_, idx) => {
+          total += 1;
+          if (state?.sabAlMunajiyat?.subs?.[idx]) done += 1;
+        });
       } else {
-        setStreak(s => ({ ...s, lastDate: today }));
+        total += 1;
+        if (state?.[tsk.id]?.done) done += 1;
       }
-      return updated;
-    });
+    }
+    return { total, done };
   }
 
+  const { total, done } = getCompletionCounts(log);
+  const progress = total ? (done / total) * 100 : 0;
+
+  // Mutators
+  function toggleTask(id) {
+    setDayLog(prev => updateLog(prev, today, id, "toggle"));
+  }
+  function toggleSab7(idx) {
+    setDayLog(prev => updateLog(prev, today, "sabAlMunajiyat", "subtoggle", idx));
+  }
   function setCounter(id, delta) {
-    setDayLog(prev => {
-      const day = { ...(prev[today] || {}) };
-      const entry = day[id] || { done: false, count: 0 };
-      entry.count = Math.min(10, Math.max(0, (entry.count || 0) + delta));
-      if (entry.count >= settings.targetReadsForPrep) entry.done = true;
+    setDayLog(prev => updateLog(prev, today, id, "counter", delta, settings.targetReadsForPrep));
+  }
+  function setField(id, field, value) {
+    setDayLog(prev => updateLog(prev, today, id, "field", field, value));
+  }
+
+  function updateLog(prev, dayKey, id, action, extra, extra2) {
+    const day = { ...(prev[dayKey] || {}) };
+    if (action === "toggle") {
+      day[id] = { ...(day[id] || {}), done: !day[id]?.done };
+    }
+    if (action === "counter") {
+      const entry = day[id] || { count: 0, done: false };
+      entry.count = clamp((entry.count || 0) + extra, 0, 10);
+      if (entry.count >= extra2) entry.done = true;
       day[id] = entry;
-      return { ...prev, [today]: day };
-    });
+    }
+    if (action === "field") {
+      day[id] = { ...(day[id] || {}), [extra]: extra2 };
+    }
+    if (action === "subtoggle") {
+      const s = day[id] || { subs: {} };
+      s.subs = { ...s.subs, [extra]: !s.subs[extra] };
+      day[id] = s;
+    }
+    const updated = { ...prev, [dayKey]: day };
+    updateStreakIfQualified(updated[dayKey]);
+    return updated;
   }
 
-  function handleSelectionChange(taskId, field, value) {
-    setTaskSelections(prev => ({
-      ...prev,
-      [taskId]: { ...(prev[taskId] || {}), [field]: value }
-    }));
-  }
-
-  function applyTheme(theme) {
-    if (theme === "dark") {
-      document.documentElement.classList.add("dark");
+  // Streak logic with catch-up modes (stored per-day under dayLog.catchup.mode)
+  function updateStreakIfQualified(stateForToday) {
+    const { total, done } = getCompletionCounts(stateForToday);
+    const pct = total ? (done / total) * 100 : 0;
+    const mode = stateForToday?.catchup?.mode; // 'off' | 'half' | 'exempt' | undefined
+    const threshold = mode === 'half' ? 50 : 70;
+    const qualifies = mode === 'exempt' ? true : pct >= threshold;
+    if (qualifies) {
+      const yesterday = fmt(new Date(Date.now() - 86400000));
+      const newCurrent = streak.lastDate === yesterday ? streak.current + 1 : 1;
+      const newBest = Math.max(streak.best, newCurrent);
+      setStreak({ current: newCurrent, best: newBest, lastDate: today });
     } else {
-      document.documentElement.classList.remove("dark");
+      setStreak(s => ({ ...s, lastDate: today }));
     }
   }
 
-  useEffect(() => { applyTheme(settings.theme); }, [settings.theme]);
-
   return (
-    <div dir="rtl" className="min-h-screen w-full bg-gradient-to-b from-emerald-50 to-white dark:from-gray-950 dark:to-gray-900 text-gray-900 dark:text-gray-100">
+    <div dir="rtl" className={`min-h-screen w-full ${t.page}`}>
       <div className="max-w-4xl mx-auto p-4 sm:p-6">
         <header className="flex items-center justify-between gap-3 mb-4">
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold">برنامج الحفظ اليومي للقرآن</h1>
-            <p className="text-sm opacity-80">واجهة أمامية فقط — تخزين محلي على جهازك</p>
           </div>
           <div className="flex items-center gap-2">
-            <button className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800" onClick={() => setShowSettings(true)}>
-              <SettingsIcon className="w-4 h-4" /> إعدادات
+            <CatchUpToggle t={t} state={log.catchup} onChange={(mode) => setField("catchup", "mode", mode)} />
+            <button className={`px-3 py-2 rounded-xl border ${t.button}`} onClick={() => setShowSettings(true)}>
+              <SettingsIcon className="w-4 h-4 inline mr-1" /> إعدادات
             </button>
           </div>
         </header>
 
         <div className="grid md:grid-cols-3 gap-4 mb-6">
-          <Card>
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-sm opacity-70">إنجاز اليوم</div>
-                <div className="text-3xl font-extrabold">{Math.round(progress)}%</div>
-              </div>
-              <Flame className="w-10 h-10 opacity-70" />
-            </div>
-            <div className="mt-4">
-              <ProgressBar value={progress} />
-            </div>
+          <Card className={t.card}>
+            <div className="text-sm opacity-70">إنجاز اليوم</div>
+            <div className="text-3xl font-extrabold">{Math.round(progress)}%</div>
+            <div className="mt-2"><ProgressBar value={progress} /></div>
           </Card>
-
-          <Card>
-            <div className="text-sm opacity-70">التزام الأيام المتتالية</div>
+          <Card className={t.card}>
+            <div className="text-sm opacity-70">التزام الأيام</div>
             <div className="text-2xl font-bold">{streak.current} يومًا</div>
             <div className="text-sm opacity-80 mt-1">أفضل سلسلة: {streak.best}</div>
           </Card>
+          <Card className={t.card}>
+            <div className="text-sm opacity-70 mb-1">اختصارات</div>
+            <div className="text-sm opacity-90">اختر الصفحة اليومية وستتولد المراجعة/التحضير تلقائيًا.</div>
+          </Card>
         </div>
 
-        <Card className="mb-6">
+        <Card className={`mb-6 ${t.card}`}>
           <h2 className="text-xl font-bold mb-3">مهام اليوم</h2>
           <ul className="space-y-3">
-            {TASKS.map((t) => {
-              const Icon = t.icon;
-              const entry = log?.[t.id] || { done: false, count: 0 };
-              const selection = taskSelections[t.id] || {};
-              return (
-                <li key={t.id} className={`flex flex-col gap-2 p-3 rounded-xl border ${entry.done ? "bg-emerald-50 border-emerald-200 dark:bg-emerald-900/20 dark:border-emerald-800" : "border-gray-200 dark:border-gray-800"}`}>
-                  <div className="flex items-center gap-3">
-                    <Icon className="w-5 h-5 opacity-70" />
-                    <span className="font-medium">{t.label}</span>
-                  </div>
-
-                  {t.type === "juz" && (
-                    <select value={selection.juz || ""} onChange={(e) => handleSelectionChange(t.id, "juz", e.target.value)} className="rounded-lg border p-1">
-                      <option value="">اختر الجزء</option>
-                      {Array.from({ length: 30 }, (_, i) => <option key={i+1} value={i+1}>{i+1}</option>)}
-                    </select>
-                  )}
-
-                  {t.type === "page" && (
-                    <select value={selection.page || ""} onChange={(e) => handleSelectionChange(t.id, "page", e.target.value)} className="rounded-lg border p-1">
-                      <option value="">اختر الصفحة</option>
-                      {Array.from({ length: 604 }, (_, i) => <option key={i+1} value={i+1}>{i+1}</option>)}
-                    </select>
-                  )}
-
-                  {t.type === "pageRange" && (
-                    <div className="flex gap-2">
-                      <select value={selection.start || ""} onChange={(e) => handleSelectionChange(t.id, "start", e.target.value)} className="rounded-lg border p-1">
-                        <option value="">من</option>
-                        {Array.from({ length: 604 }, (_, i) => <option key={i+1} value={i+1}>{i+1}</option>)}
-                      </select>
-                      <select value={selection.end || ""} onChange={(e) => handleSelectionChange(t.id, "end", e.target.value)} className="rounded-lg border p-1">
-                        <option value="">إلى</option>
-                        {Array.from({ length: 604 }, (_, i) => <option key={i+1} value={i+1}>{i+1}</option>)}
-                      </select>
-                    </div>
-                  )}
-
-                  <div className="flex items-center gap-2 mt-2">
-                    {t.isCounter && (
-                      <div className="flex items-center gap-2">
-                        <button className="p-2 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800" onClick={() => setCounter(t.id, -1)}>
-                          <Minus className="w-4 h-4" />
-                        </button>
-                        <div className="text-sm tabular-nums">{entry.count} / {settings.targetReadsForPrep}</div>
-                        <button className="p-2 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800" onClick={() => setCounter(t.id, +1)}>
-                          <Plus className="w-4 h-4" />
-                        </button>
-                      </div>
-                    )}
-                    <button onClick={() => toggleTask(t.id)} className={`inline-flex items-center gap-2 px-3 py-2 rounded-xl border ${entry.done ? "border-emerald-300 bg-emerald-100 text-emerald-900 dark:bg-emerald-800/40 dark:text-emerald-100" : "border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800"}`}>
-                      <Check className="w-4 h-4" /> {entry.done ? "تم" : "إنهاء"}
-                    </button>
-                  </div>
-                </li>
-              );
-            })}
+            {tasks.map((task, idx) => (
+              <TaskRow
+                key={idx}
+                t={t}
+                label={task.label}
+                enabled={task.enabled}
+                done={task.subtasks ? false : !!log[task.id]?.done}
+                onToggle={() => (task.subtasks ? null : toggleTask(task.id))}
+                extras={task.extra}
+                counter={task.counter}
+                count={log[task.id]?.count || 0}
+                target={settings.targetReadsForPrep}
+                onDec={() => setCounter(task.id, -1)}
+                onInc={() => setCounter(task.id, +1)}
+                subtasks={task.subtasks}
+                subsState={log[task.id]?.subs || {}}
+                onSubToggle={(i)=> toggleSab7(i)}
+              />
+            ))}
           </ul>
         </Card>
       </div>
 
       {showSettings && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-xl rounded-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 p-5">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold">إعدادات</h2>
-              <button onClick={() => setShowSettings(false)} className="text-sm underline opacity-80 hover:opacity-100">إغلاق</button>
-            </div>
-
-            <div className="grid sm:grid-cols-2 gap-4">
-              <label className="flex flex-col gap-1">
-                <span className="text-sm opacity-80">عدد مرات قراءة صفحة الغد قبل النوم</span>
-                <input type="number" min={3} max={10} value={settings.targetReadsForPrep} onChange={(e) => setSettings(s => ({ ...s, targetReadsForPrep: Math.max(3, Math.min(10, Number(e.target.value)||3)) }))} className="rounded-xl border border-gray-300 dark:border-gray-700 bg-transparent px-3 py-2" />
-              </label>
-
-              <label className="flex flex-col gap-1">
-                <span className="text-sm opacity-80">نافذة مراجعة الصفحات الحديثة</span>
-                <input type="number" min={10} max={40} value={settings.reviewWindowPages} onChange={(e) => setSettings(s => ({ ...s, reviewWindowPages: Math.max(10, Math.min(40, Number(e.target.value)||20)) }))} className="rounded-xl border border-gray-300 dark:border-gray-700 bg-transparent px-3 py-2" />
-              </label>
-
-              <label className="flex flex-col gap-1">
-                <span className="text-sm opacity-80">السِمَة</span>
-                <select value={settings.theme} onChange={(e) => setSettings(s => ({ ...s, theme: e.target.value }))} className="rounded-xl border border-gray-300 dark:border-gray-700 bg-transparent px-3 py-2">
-                  <option value="auto">تلقائي</option>
-                  <option value="light">فاتح</option>
-                  <option value="dark">داكن</option>
-                </select>
-              </label>
-            </div>
-
-            <div className="mt-5 flex items-center justify-end gap-2">
-              <button onClick={() => setShowSettings(false)} className="px-4 py-2 rounded-xl border border-gray-300 dark:border-gray-700">تم</button>
-            </div>
+          <div className={`w-full max-w-xl rounded-2xl p-5 border ${t.card}`}>
+            <h2 className="text-xl font-bold mb-4">إعدادات</h2>
+            <label className="flex flex-col gap-1 mb-3">
+              <span>عدد مرات قراءة صفحة الغد (3–10)</span>
+              <input
+                type="number"
+                min={3}
+                max={10}
+                value={settings.targetReadsForPrep}
+                onChange={(e) => setSettings((s) => ({ ...s, targetReadsForPrep: clamp(Number(e.target.value) || 3, 3, 10) }))}
+                className={`rounded-xl px-3 py-2 border ${t.input}`}
+              />
+            </label>
+            <label className="flex flex-col gap-1 mb-4">
+              <span>السِمَة</span>
+              <select value={settings.theme} onChange={(e) => setSettings((s) => ({ ...s, theme: e.target.value }))} className={`rounded-xl px-3 py-2 border ${t.input}`}>
+                <option value="light">فاتح</option>
+                <option value="dark">داكن</option>
+                <option value="nabawi">مسجد نبوي</option>
+                <option value="kaaba">الكعبة</option>
+              </select>
+            </label>
+            <button onClick={() => setShowSettings(false)} className={`px-4 py-2 rounded-xl border ${t.button}`}>
+              تم
+            </button>
           </div>
         </div>
       )}
     </div>
+  );
+}
+
+// =====================
+// Subcomponents
+// =====================
+function TaskRow({ t, label, enabled, done, onToggle, extras, counter, count, target, onDec, onInc, subtasks, subsState, onSubToggle }) {
+  return (
+    <li className={`p-3 rounded-xl border ${t.button} ${done ? t.rowDone : ""} ${!enabled ? "opacity-50 pointer-events-none" : ""}`}>
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center gap-3">
+          <span className="font-medium">{label}</span>
+          {extras}
+        </div>
+
+        {counter && (
+          <div className="flex items-center gap-2">
+            <button onClick={onDec} className={`p-1 rounded border ${t.button}`}>
+              <Minus className="w-4 h-4" />
+            </button>
+            <div className="tabular-nums">{count} / {target}</div>
+            <button onClick={onInc} className={`p-1 rounded border ${t.button}`}>
+              <Plus className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
+        {subtasks && (
+          <div className="flex flex-wrap gap-2">
+            {subtasks.map((name, idx) => {
+              const checked = !!subsState[idx];
+              return (
+                <button
+                  key={idx}
+                  onClick={() => onSubToggle(idx)}
+                  className={`px-3 py-1 rounded-xl border ${t.button} ${checked ? t.chipOn : ""}`}
+                >
+                  <Check className="w-4 h-4 inline ml-1" /> {name}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {!subtasks && (
+          <button onClick={onToggle} className={`px-3 py-1 rounded border ${t.button} ${done ? t.rowDone : ""}`}>
+            <Check className="w-4 h-4 inline ml-1" /> {done ? "تم" : "إنهاء"}
+          </button>
+        )}
+      </div>
+    </li>
+  );
+}
+
+function CatchUpToggle({ t, state, onChange }) {
+  const mode = state?.mode || 'off';
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      <span className="opacity-80">يوم تعويض:</span>
+      <select className={`rounded-xl px-2 py-1 border ${t.input}`} value={mode} onChange={(e)=>onChange(e.target.value)}>
+        <option value="off">لا</option>
+        <option value="half">تخفيف (50%)</option>
+        <option value="exempt">إعفاء</option>
+      </select>
+    </div>
+  );
+}
+
+function NumberInput({ min, max, value, onChange, placeholder, cls }) {
+  return (
+    <input
+      type="number"
+      min={min}
+      max={max}
+      value={value}
+      placeholder={placeholder}
+      onChange={(e) => {
+        const s = e.target.value;
+        if (s === "") { onChange(null); return; }
+        const v = clamp(Number(s) || 0, min, max);
+        onChange(v);
+      }}
+      className={`border px-2 py-1 rounded ${cls} w-24 text-center`}
+    />
   );
 }
