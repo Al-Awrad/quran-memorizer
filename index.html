@@ -1,0 +1,311 @@
+import React, { useEffect, useMemo, useState } from "react";
+import { Check, Calendar, Settings as SettingsIcon, RotateCcw, BookOpenText, Flame, Plus, Minus, Download, Upload } from "lucide-react";
+
+// --- Utilities ---
+const fmt = (d) => d.toISOString().slice(0, 10); // YYYY-MM-DD
+const todayKey = () => fmt(new Date());
+
+const defaultSettings = {
+  anchorDate: fmt(new Date("2025-01-01T00:00:00")), // day 1 of a 30-day juz cycle
+  targetReadsForPrep: 3, // default 3x (user can increase to 10)
+  reviewWindowPages: 20,
+  theme: "auto", // auto | light | dark
+};
+
+const TASKS = [
+  { id: "readJuz", label: "قراءة جزء اليوم (دوران كل 30 يوماً)", icon: BookOpenText },
+  { id: "prepNextWeek", label: "التحضير للأسبوع القادم: قراءة 7 صفحات من القادم (مرة يومياً)", icon: Calendar },
+  { id: "reviewLastWeek", label: "مراجعة 7 صفحات التي حُفِظت الأسبوع الماضي", icon: RotateCcw },
+  { id: "memorizeToday", label: "حفظ صفحة اليوم المقررة", icon: Check },
+  { id: "prepTomorrow", label: "تهيئة صفحة الغد قبل النوم (3–10 مرات)", icon: Calendar, isCounter: true },
+  { id: "reviewRecent20", label: "مراجعة آخر 20 صفحة مُحفَّظة", icon: RotateCcw },
+  { id: "reviewOldJuz", label: "مراجعة جزء قديم (~20 صفحة)", icon: RotateCcw },
+];
+
+const QUOTES = [
+  "خيركم من تعلم القرآن وعلمه",
+  "والقرآن حجة لك أو عليك",
+  "تَعاهَدوا القرآن، فوالذي نفس محمد بيده لهو أشد تفلّتًا من الإبل في عُقُلها",
+  "اقرؤوا القرآن فإنه يأتي يوم القيامة شفيعًا لأصحابه",
+];
+
+function useLocalStorage(key, initialValue) {
+  const [value, setValue] = useState(() => {
+    try {
+      const item = localStorage.getItem(key);
+      return item ? JSON.parse(item) : initialValue;
+    } catch {
+      return initialValue;
+    }
+  });
+  useEffect(() => {
+    try { localStorage.setItem(key, JSON.stringify(value)); } catch {}
+  }, [key, value]);
+  return [value, setValue];
+}
+
+function calcJuzNumber(anchorDate) {
+  const start = new Date(anchorDate + "T00:00:00");
+  const now = new Date();
+  const diffDays = Math.floor((now - start) / (1000 * 60 * 60 * 24));
+  const idx = ((diffDays % 30) + 30) % 30; // handle negatives
+  return idx + 1; // 1..30
+}
+
+function ProgressBar({ value }) {
+  return (
+    <div className="w-full h-3 bg-gray-200 dark:bg-gray-800 rounded-xl overflow-hidden">
+      <div className="h-full bg-green-500" style={{ width: `${Math.min(100, Math.max(0, value))}%` }} />
+    </div>
+  );
+}
+
+function Card({ children, className = "" }) {
+  return (
+    <div className={`rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800 p-4 bg-white/70 dark:bg-gray-900/70 backdrop-blur ${className}`}>
+      {children}
+    </div>
+  );
+}
+
+export default function QuranMemorizerApp() {
+  const [settings, setSettings] = useLocalStorage("qm.settings.v1", defaultSettings);
+  const [dayLog, setDayLog] = useLocalStorage("qm.daylog.v1", {}); // { YYYY-MM-DD: { taskId: { done, count } } }
+  const [streak, setStreak] = useLocalStorage("qm.streak.v1", { current: 0, best: 0, lastDate: null });
+  const [showSettings, setShowSettings] = useState(false);
+  const [quoteIndex, setQuoteIndex] = useState(() => Math.floor(Math.random() * QUOTES.length));
+
+  // Juz number for today
+  const todayJuz = useMemo(() => calcJuzNumber(settings.anchorDate), [settings.anchorDate]);
+
+  const today = todayKey();
+  const log = dayLog[today] || {};
+
+  const completedCount = TASKS.reduce((acc, t) => acc + (log?.[t.id]?.done ? 1 : 0), 0);
+  const progress = (completedCount / TASKS.length) * 100;
+
+  // Streak handling: If all tasks completed for a new day, increase streak
+  useEffect(() => {
+    const last = streak.lastDate;
+    if (!last) return; // nothing to compare yet
+    // if user moved to a new day and didn't complete yesterday, streak stays; we'll only update when they complete all tasks
+  }, [today]);
+
+  function toggleTask(id) {
+    setDayLog(prev => {
+      const day = { ...(prev[today] || {}) };
+      const entry = day[id] || { done: false, count: 0 };
+      entry.done = !entry.done;
+      day[id] = entry;
+      const updated = { ...prev, [today]: day };
+      // update streak if all tasks done
+      const allDone = TASKS.every(t => (updated[today]?.[t.id]?.done));
+      if (allDone) {
+        const prevDate = streak.lastDate;
+        const yesterday = fmt(new Date(Date.now() - 24*60*60*1000));
+        const newCurrent = prevDate === yesterday ? streak.current + 1 : 1;
+        const newBest = Math.max(streak.best, newCurrent);
+        setStreak({ current: newCurrent, best: newBest, lastDate: today });
+      } else {
+        // Only update lastDate if today has any completion to mark activity
+        setStreak(s => ({ ...s, lastDate: today }));
+      }
+      return updated;
+    });
+  }
+
+  function setCounter(id, delta) {
+    setDayLog(prev => {
+      const day = { ...(prev[today] || {}) };
+      const entry = day[id] || { done: false, count: 0 };
+      entry.count = Math.min(10, Math.max(0, (entry.count || 0) + delta));
+      // Auto-complete when reaching targetReadsForPrep
+      if (entry.count >= settings.targetReadsForPrep) entry.done = true;
+      day[id] = entry;
+      const updated = { ...prev, [today]: day };
+      return updated;
+    });
+  }
+
+  function resetToday() {
+    setDayLog(prev => ({ ...prev, [today]: {} }));
+  }
+
+  function applyTheme(theme) {
+    if (theme === "auto") {
+      document.documentElement.classList.remove("dark");
+    } else if (theme === "dark") {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
+  }
+
+  useEffect(() => { applyTheme(settings.theme); }, [settings.theme]);
+
+  function exportData() {
+    const blob = new Blob([JSON.stringify({ settings, dayLog, streak }, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `quran-memorizer-${today}.json`; a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function importData(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const json = JSON.parse(String(reader.result));
+        if (json.settings) setSettings(json.settings);
+        if (json.dayLog) setDayLog(json.dayLog);
+        if (json.streak) setStreak(json.streak);
+      } catch {}
+    };
+    reader.readAsText(file);
+  }
+
+  return (
+    <div className="min-h-screen w-full bg-gradient-to-b from-emerald-50 to-white dark:from-gray-950 dark:to-gray-900 text-gray-900 dark:text-gray-100">
+      <div className="max-w-4xl mx-auto p-4 sm:p-6">
+        <header className="flex items-center justify-between gap-3 mb-4">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold">برنامج الحفظ اليومي للقرآن</h1>
+            <p className="text-sm opacity-80">واجهة أمامية فقط — تخزين محلي على جهازك</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800" onClick={() => setShowSettings(true)}>
+              <SettingsIcon className="w-4 h-4" /> إعدادات
+            </button>
+            <button className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800" onClick={exportData}>
+              <Download className="w-4 h-4" /> تصدير
+            </button>
+            <label className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer">
+              <Upload className="w-4 h-4" /> استيراد
+              <input type="file" className="hidden" accept="application/json" onChange={importData} />
+            </label>
+          </div>
+        </header>
+
+        <div className="grid md:grid-cols-3 gap-4 mb-6">
+          <Card>
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-sm opacity-70">جزء اليوم</div>
+                <div className="text-3xl font-extrabold">{todayJuz}</div>
+              </div>
+              <Flame className="w-10 h-10 opacity-70" />
+            </div>
+            <div className="mt-4">
+              <div className="flex items-center justify-between text-sm mb-2">
+                <span>إنجاز اليوم</span>
+                <span className="font-semibold">{Math.round(progress)}%</span>
+              </div>
+              <ProgressBar value={progress} />
+            </div>
+          </Card>
+
+          <Card>
+            <div className="text-sm opacity-70">التزام الأيام المتتالية</div>
+            <div className="text-2xl font-bold">{streak.current} يومًا</div>
+            <div className="text-sm opacity-80 mt-1">أفضل سلسلة: {streak.best}</div>
+            <button onClick={resetToday} className="mt-4 text-xs underline opacity-80 hover:opacity-100">إعادة تعيين مهام اليوم</button>
+          </Card>
+
+          <Card>
+            <div className="text-sm opacity-70 mb-2">عبارة تحفيزية</div>
+            <div className="text-lg font-semibold">{QUOTES[quoteIndex]}</div>
+            <button className="mt-3 text-xs underline opacity-80 hover:opacity-100" onClick={() => setQuoteIndex((i) => (i+1)%QUOTES.length)}>عبارة أخرى</button>
+          </Card>
+        </div>
+
+        <Card className="mb-6">
+          <h2 className="text-xl font-bold mb-3">مهام اليوم</h2>
+          <ul className="space-y-3">
+            {TASKS.map((t) => {
+              const Icon = t.icon;
+              const entry = log?.[t.id] || { done: false, count: 0 };
+              return (
+                <li key={t.id} className={`flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-xl border ${entry.done ? "bg-emerald-50 border-emerald-200 dark:bg-emerald-900/20 dark:border-emerald-800" : "border-gray-200 dark:border-gray-800"}`}>
+                  <div className="flex items-center gap-3">
+                    <Icon className="w-5 h-5 opacity-70" />
+                    <span className="font-medium">{t.label}</span>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {t.isCounter && (
+                      <div className="flex items-center gap-2">
+                        <button className="p-2 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800" onClick={() => setCounter(t.id, -1)}>
+                          <Minus className="w-4 h-4" />
+                        </button>
+                        <div className="text-sm tabular-nums">{entry.count} / {settings.targetReadsForPrep}</div>
+                        <button className="p-2 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800" onClick={() => setCounter(t.id, +1)}>
+                          <Plus className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
+                    <button onClick={() => toggleTask(t.id)} className={`inline-flex items-center gap-2 px-3 py-2 rounded-xl border ${entry.done ? "border-emerald-300 bg-emerald-100 text-emerald-900 dark:bg-emerald-800/40 dark:text-emerald-100" : "border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800"}`}>
+                      <Check className="w-4 h-4" /> {entry.done ? "تم" : "إنهاء"}
+                    </button>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </Card>
+
+        <Card>
+          <h3 className="text-lg font-semibold mb-2">تلميحات سريعة</h3>
+          <ul className="list-disc pr-6 space-y-1 text-sm opacity-90">
+            <li>قسّم جلسة الحفظ إلى مقاطع قصيرة (5–7 دقائق) مع وقفات تنفّس.</li>
+            <li>ثبّت موضع البداية يوميًا (بعد الفجر/بعد العصر) لثبات العادة.</li>
+            <li>اربط كل صفحة بمنارة صوتية: قراءة جهريّة ثم غَضّ الصوت ثم من الذاكرة.</li>
+            <li>استخدم خيار التصدير للنسخ الاحتياطي قبل مسح المتصفح.</li>
+          </ul>
+        </Card>
+      </div>
+
+      {showSettings && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-xl rounded-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold">إعدادات</h2>
+              <button onClick={() => setShowSettings(false)} className="text-sm underline opacity-80 hover:opacity-100">إغلاق</button>
+            </div>
+
+            <div className="grid sm:grid-cols-2 gap-4">
+              <label className="flex flex-col gap-1">
+                <span className="text-sm opacity-80">تاريخ بداية دورة الأجزاء (اليوم = الجزء 1)</span>
+                <input type="date" value={settings.anchorDate} onChange={(e) => setSettings(s => ({ ...s, anchorDate: e.target.value }))} className="rounded-xl border border-gray-300 dark:border-gray-700 bg-transparent px-3 py-2" />
+              </label>
+
+              <label className="flex flex-col gap-1">
+                <span className="text-sm opacity-80">عدد مرات قراءة صفحة الغد قبل النوم</span>
+                <input type="number" min={3} max={10} value={settings.targetReadsForPrep} onChange={(e) => setSettings(s => ({ ...s, targetReadsForPrep: Math.max(3, Math.min(10, Number(e.target.value)||3)) }))} className="rounded-xl border border-gray-300 dark:border-gray-700 bg-transparent px-3 py-2" />
+              </label>
+
+              <label className="flex flex-col gap-1">
+                <span className="text-sm opacity-80">نافذة مراجعة الصفحات الحديثة</span>
+                <input type="number" min={10} max={40} value={settings.reviewWindowPages} onChange={(e) => setSettings(s => ({ ...s, reviewWindowPages: Math.max(10, Math.min(40, Number(e.target.value)||20)) }))} className="rounded-xl border border-gray-300 dark:border-gray-700 bg-transparent px-3 py-2" />
+              </label>
+
+              <label className="flex flex-col gap-1">
+                <span className="text-sm opacity-80">السِمَة</span>
+                <select value={settings.theme} onChange={(e) => setSettings(s => ({ ...s, theme: e.target.value }))} className="rounded-xl border border-gray-300 dark:border-gray-700 bg-transparent px-3 py-2">
+                  <option value="auto">تلقائي</option>
+                  <option value="light">فاتح</option>
+                  <option value="dark">داكن</option>
+                </select>
+              </label>
+            </div>
+
+            <div className="mt-5 flex items-center justify-end gap-2">
+              <button onClick={() => setShowSettings(false)} className="px-4 py-2 rounded-xl border border-gray-300 dark:border-gray-700">تم</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
