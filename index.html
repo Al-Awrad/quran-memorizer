@@ -4,7 +4,6 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>برنامج الحفظ اليومي للقرآن</title>
-  <!-- Tailwind CDN (no build step) -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = { theme: { extend: {} } };
@@ -21,39 +20,31 @@
       60%  { transform: scale(1.05); opacity: 1;}
       100% { transform: scale(1); opacity: 1;}
     }
-    /* Custom scrollbar for cards */
-    ::-webkit-scrollbar { width: 8px; }
-    ::-webkit-scrollbar-thumb { background: #c9a22744; border-radius: 4px; }
-    ::-webkit-scrollbar-track { background: transparent; }
   </style>
 </head>
 <body>
   <div class="hidden
-    bg-[#FAFAFA] text-[#222] border-[#E0E0E0] bg-white
-    bg-[#18181B] text-[#EEE] border-[#444] bg-[#23232A]
-    bg-green-50 border-green-400 text-green-900 bg-green-100
-    bg-emerald-700/30 border-emerald-400 text-emerald-100
-    bg-green-200 text-green-900
-    bg-white border-gray-200 text-gray-800
-    bg-[#23232A] border-[#444] text-[#EEE]
-    border-green-400 text-green-500
-    border-emerald-400 text-emerald-400
-    hover:bg-[#F0F0F0] hover:bg-[#333]
     bg-gradient-to-br from-green-100 via-emerald-100 to-yellow-50
     bg-gradient-to-br from-blue-100 via-indigo-100 to-yellow-50
-    border-[#bfa850] text-[#0f2e1f]
-    border-[#3d7f9e] text-[#233d6b]
-    bg-[#FAF7EC] text-[#0f2e1f]
-    bg-[#EAF7E9] text-[#0f2e1f]
-    bg-[#DFF1E0] text-[#0f2e1f]
-    bg-[#f6eeb7] text-[#9d7d28]
-    bg-[#e1eaff] text-[#233d6b]
+    bg-gradient-to-br from-[#18181B] via-[#23232A] to-[#122d42] text-[#EEE]
+    bg-[#23232A] border-[#444] text-[#EEE]
+    bg-[#0f3c2e] border-[#45bfa8] text-[#66ffe0]
+    bg-[#1d2b4f] border-[#4f8ef7] text-[#96cafe]
+    bg-[#320a46] border-[#d191e1] text-[#eecaff]
+    bg-emerald-700/30 border-emerald-400 text-emerald-100
+    bg-[#1a2b1f] border-[#45bfa8] text-[#66ffe0]
+    bg-[#29324a] border-[#4f8ef7] text-[#96cafe]
+    bg-[#3e1859] border-[#d191e1] text-[#eecaff]
+    hover:bg-[#333]
+    border-emerald-400 text-emerald-400
+    border-[#45bfa8] text-[#45bfa8] border-[#4f8ef7] text-[#4f8ef7] border-[#d191e1] text-[#d191e1]
+    bg-gradient-to-br from-green-100 via-emerald-100 to-yellow-50
+    bg-gradient-to-br from-blue-100 via-indigo-100 to-yellow-50
+    bg-[#23232A] border-[#444] text-[#EEE]
   "></div>
-
   <div id="app" class="min-h-screen w-full"></div>
-
   <script>
-    // ===================== Constants =====================
+    // --- Helpers & Constants ---
     const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
     const wrap604 = (n) => (((n - 1) % 604) + 604) % 604 + 1;
     const JUZ_START_PAGES = [1,22,42,62,82,102,121,142,162,182,201,222,242,262,282,302,322,342,362,382,402,422,442,462,482,502,522,542,562,582];
@@ -65,7 +56,7 @@
     const SAB7 = ["السجدة","يس","الدخان","الواقعة","الملك","الإنسان","البروج"];
     const DEFAULT_READS_FOR_PREP = 10;
 
-    // ===================== Themes =====================
+    // --- Colorful Themes ---
     function themeClasses(theme) {
       switch (theme) {
         case "green-gold":
@@ -95,38 +86,26 @@
             select: "border-[#3d7f9e] bg-white text-[#233d6b]",
           };
         case "dark":
+        default:
           return {
-            page: "bg-[#18181B] text-[#EEE]",
-            card: "border-[#444] bg-[#23232A]",
-            input: "bg-[#23232A] text-[#EEE] border-[#444]",
-            button: "border-[#444] hover:bg-[#333]",
-            rowDone: "bg-emerald-700/30 border-emerald-400 text-emerald-100 row-animated",
+            page: "bg-gradient-to-br from-[#18181B] via-[#23232A] to-[#122d42] text-[#EEE]",
+            card: "bg-[#23232A] border-[#444] text-[#EEE]",
+            input: "bg-[#23232A] text-[#EEE] border-[#444] focus:ring-2 focus:ring-cyan-400",
+            button: "border-cyan-500 hover:bg-[#0f3c2e] hover:border-emerald-400",
+            rowDone: "bg-[#0f3c2e] border-[#45bfa8] text-[#66ffe0] row-animated",
             rowActive: "bg-[#23232A] border-[#444] text-[#EEE]",
-            chipOn: "bg-emerald-700 text-emerald-100 border-emerald-400",
-            checkIcon: "text-emerald-400",
+            chipOn: "bg-[#1a2b1f] text-[#66ffe0] border-[#45bfa8]",
+            checkIcon: "text-cyan-400",
             resetBtn: "bg-[#23232A] border-emerald-400 text-emerald-100 hover:bg-[#18181B]",
-            select: "border-[#444] bg-[#23232A] text-[#EEE]",
-          };
-        default: // light
-          return {
-            page: "bg-[#FAFAFA] text-[#222]",
-            card: "border-[#E0E0E0] bg-white",
-            input: "bg-white text-[#222] border-[#E0E0E0]",
-            button: "border-[#E0E0E0] hover:bg-[#F0F0F0]",
-            rowDone: "bg-green-100 border-green-400 text-green-900 row-animated",
-            rowActive: "bg-white border-gray-200 text-gray-800",
-            chipOn: "bg-green-200 text-green-900 border-green-400",
-            checkIcon: "text-green-500",
-            resetBtn: "bg-gray-100 border-gray-400 text-gray-900 hover:bg-gray-200",
-            select: "border-[#E0E0E0] bg-white text-[#222]",
+            select: "border-cyan-500 bg-[#23232A] text-cyan-200",
           };
       }
     }
 
-    // ===================== State =====================
+    // --- State ---
     const state = {
-      settings: { theme: "green-gold" }, // default theme
-      todayPage: null, // 1..604
+      settings: { theme: "dark" },
+      todayPage: null,
       day: {
         readJuz: { juz: null, done: false },
         memorizeToday: { done: false },
@@ -135,32 +114,21 @@
         prepTomorrow: { count: 0, done: false },
         reviewRecent20: { done: false },
         reviewOldJuz: { juz: null, done: false },
-        sabAlMunajiyat: { subs: {} }, // indices 0..6 true/false
+        sabAlMunajiyat: { subs: {} },
       },
       _rowAnim: {},
     };
 
-    // ===================== Derived Windows =====================
+    // --- Derived Windows ---
     function hasPage() {
       return Number.isInteger(state.todayPage) && state.todayPage >= 1 && state.todayPage <= 604;
     }
-    function prev7() {
-      if (!hasPage()) return [];
-      return Array.from({length:7}, (_,i)=> wrap604(state.todayPage - 7 + i));
-    }
-    function next7() {
-      if (!hasPage()) return [];
-      return Array.from({length:7}, (_,i)=> wrap604(state.todayPage + 1 + i));
-    }
-    function tomorrowPage() {
-      return hasPage() ? wrap604(state.todayPage + 1) : null;
-    }
-    function recent20() {
-      if (!hasPage()) return [];
-      return Array.from({length:20}, (_,i)=> wrap604(state.todayPage - 19 + i));
-    }
+    function prev7() { if (!hasPage()) return []; return Array.from({length:7}, (_,i)=> wrap604(state.todayPage - 7 + i)); }
+    function next7() { if (!hasPage()) return []; return Array.from({length:7}, (_,i)=> wrap604(state.todayPage + 1 + i)); }
+    function tomorrowPage() { return hasPage() ? wrap604(state.todayPage + 1) : null; }
+    function recent20() { if (!hasPage()) return []; return Array.from({length:20}, (_,i)=> wrap604(state.todayPage - 19 + i)); }
 
-    // ===================== Progress =====================
+    // --- Progress ---
     function completionCounts() {
       const enabledTasks = [];
       const addTask = (id, count=1) => { enabledTasks.push({id, count}); };
@@ -191,7 +159,7 @@
       return { total, done, percent: total ? Math.round(done/total*100) : 0 };
     }
 
-    // ===================== Render =====================
+    // --- Render ---
     const root = document.getElementById("app");
     function el(html) {
       const t = document.createElement("template");
@@ -202,7 +170,6 @@
     function render() {
       const t = themeClasses(state.settings.theme);
       const { total, done, percent } = completionCounts();
-
       root.className = `${t.page}`;
       root.innerHTML = `
         <div class="max-w-4xl mx-auto p-4 sm:p-6">
@@ -214,21 +181,19 @@
               <select id="selTheme" class="px-3 py-2 rounded-xl ${t.select}">
                 <option value="green-gold" ${state.settings.theme==="green-gold"?"selected":""}>أخضر وذهبي</option>
                 <option value="blue-gold" ${state.settings.theme==="blue-gold"?"selected":""}>أزرق وذهبي</option>
-                <option value="light" ${state.settings.theme==="light"?"selected":""}>فاتح</option>
-                <option value="dark" ${state.settings.theme==="dark"?"selected":""}>داكن</option>
+                <option value="dark" ${state.settings.theme==="dark"?"selected":""}>داكن ملون</option>
               </select>
               <button id="btnResetAll" class="px-3 py-2 rounded-xl border ${t.resetBtn}">
                 🔄 إعادة ضبط اليوم
               </button>
             </div>
           </header>
-
           <div class="grid md:grid-cols-3 gap-4 mb-6">
             <div class="rounded-2xl shadow-sm border p-4 ${t.card}">
               <div class="text-sm opacity-70">إنجاز اليوم</div>
               <div class="text-3xl font-extrabold">${percent}%</div>
               <div class="mt-2">
-                <div class="w-full h-3 bg-gray-200 rounded-xl overflow-hidden"><div class="h-full bg-green-600" style="width:${percent}%;"></div></div>
+                <div class="w-full h-3 bg-gray-200 rounded-xl overflow-hidden"><div class="h-full bg-cyan-400" style="width:${percent}%;"></div></div>
               </div>
             </div>
             <div class="rounded-2xl shadow-sm border p-4 ${t.card}">
@@ -240,15 +205,13 @@
               <div class="text-sm opacity-90">اختر جزءًا لعرض نطاق صفحاته (مدني).</div>
             </div>
           </div>
-
           <div class="mb-6 rounded-2xl shadow-sm border p-4 ${t.card}">
             <h2 class="text-xl font-bold mb-3">مهام اليوم</h2>
             <ul class="space-y-3" id="taskList"></ul>
           </div>
         </div>
       `;
-
-      // Build tasks list
+      // --- Build tasks list ---
       const ul = root.querySelector("#taskList");
       function animClass(id, done) {
         if (!state._rowAnim[id]) state._rowAnim[id] = false;
@@ -259,7 +222,7 @@
         if (!done) state._rowAnim[id] = false;
         return "";
       }
-
+      // --- Task row ---
       const row = (opts) => {
         const { id, label, extraHTML="", enabled=true, done=false, hasCounter=false, count=0, target=DEFAULT_READS_FOR_PREP } = opts;
         const faded = (!enabled) ? "opacity-50" : "";
@@ -288,71 +251,65 @@
         ul.appendChild(li);
       };
 
+      // --- Input fix: only re-render on blur or Enter ---
+      function wireInputField(id, prop, min, max) {
+        const inp = root.querySelector(`#${id}`);
+        if (!inp) return;
+        inp.value = state.day[prop]?.[id] ?? state.day[prop]?.juz ?? state[prop] ?? "";
+        inp.oninput = (e) => {
+          // Store value but do not re-render
+          const v = e.target.value === "" ? null : clamp(parseInt(e.target.value,10)||0, min, max);
+          if (prop === "readJuz" || prop === "reviewOldJuz") {
+            state.day[prop].juz = v;
+          } else if (id === "inpTodayPage") {
+            state.todayPage = v;
+          }
+        };
+        inp.onblur = (e) => { render(); };
+        inp.onkeydown = (e) => {
+          if (e.key === "Enter") { render(); }
+        };
+      }
+
       // قراءة الجزء اليومي
       const juzExtra = `
         <div class="flex flex-col gap-1">
           <input id="inpReadJuz" type="number" min="1" max="30" value="${state.day.readJuz.juz??""}"
-                 class="border px-2 py-1 rounded ${t.input} w-24 text-center" />
-          <small class="opacity-70">${state.day.readJuz.juz ? `الجزء ${state.day.readJuz.juz} — الصفحات ${juzSpan(state.day.readJuz.juz).start}–${juzSpan(state.day.readJuz.juz).end}` :""}
-          </small>
+                 class="border px-2 py-1 rounded ${t.input} w-24 text-center" autocomplete="off" />
+          <small class="opacity-70">${state.day.readJuz.juz ? `الجزء ${state.day.readJuz.juz} — الصفحات ${juzSpan(state.day.readJuz.juz).start}–${juzSpan(state.day.readJuz.juz).end}` :""}</small>
+          <small class="text-xs text-cyan-400">يمكنك كتابة الرقم ثم الضغط Enter أو الخروج من الخانة</small>
         </div>`;
       row({ id:"readJuz", label:"قراءة الجزء اليومي", extraHTML:juzExtra, enabled:true, done: state.day.readJuz.done });
 
-      // حفظ صفحة اليوم (sets todayPage)
+      // حفظ صفحة اليوم
       const memExtra = `
         <input id="inpTodayPage" type="number" min="1" max="604" placeholder="1–604" value="${state.todayPage??""}"
-               class="border px-2 py-1 rounded ${t.input} w-24 text-center" />`;
+               class="border px-2 py-1 rounded ${t.input} w-24 text-center" autocomplete="off" />
+        <small class="text-xs text-cyan-400">يمكنك كتابة الرقم ثم الضغط Enter أو الخروج من الخانة</small>`;
       row({ id:"memorizeToday", label:"حفظ صفحة اليوم", extraHTML:memExtra, enabled:true, done: state.day.memorizeToday.done });
 
       // Derived tasks (need todayPage)
       const enabledDerived = hasPage();
-
-      // مراجعة الصفحات السابقة
+      row({ id:"reviewLast7", label: enabledDerived ? `مراجعة الصفحات: ${prev7().join("، ")}` : "مراجعة الصفحات السابقة (اختر صفحة أولاً)", enabled: enabledDerived, done: state.day.reviewLast7.done });
+      row({ id:"prepNext7", label: enabledDerived ? `تحضير الصفحات: ${next7().join("، ")}` : "تحضير الصفحات القادمة (اختر صفحة أولاً)", enabled: enabledDerived, done: state.day.prepNext7.done });
       row({
-        id:"reviewLast7",
-        label: enabledDerived ? `مراجعة الصفحات: ${prev7().join("، ")}` : "مراجعة الصفحات السابقة (اختر صفحة أولاً)",
-        enabled: enabledDerived,
-        done: state.day.reviewLast7.done
+        id:"prepTomorrow", label: enabledDerived ? `تهيئة صفحة الغد (${tomorrowPage()}) (10 مرات)` : "تهيئة صفحة الغد (اختر صفحة أولاً)",
+        enabled: enabledDerived, done: state.day.prepTomorrow.done || (state.day.prepTomorrow.count >= DEFAULT_READS_FOR_PREP),
+        hasCounter: true, count: state.day.prepTomorrow.count, target: DEFAULT_READS_FOR_PREP
       });
-
-      // تحضير الصفحات القادمة
-      row({
-        id:"prepNext7",
-        label: enabledDerived ? `تحضير الصفحات: ${next7().join("، ")}` : "تحضير الصفحات القادمة (اختر صفحة أولاً)",
-        enabled: enabledDerived,
-        done: state.day.prepNext7.done
-      });
-
-      // تهيئة صفحة الغد (counter, always target 10)
-      row({
-        id:"prepTomorrow",
-        label: enabledDerived ? `تهيئة صفحة الغد (${tomorrowPage()}) (10 مرات)` : "تهيئة صفحة الغد (اختر صفحة أولاً)",
-        enabled: enabledDerived,
-        done: state.day.prepTomorrow.done || (state.day.prepTomorrow.count >= DEFAULT_READS_FOR_PREP),
-        hasCounter: true,
-        count: state.day.prepTomorrow.count,
-        target: DEFAULT_READS_FOR_PREP
-      });
-
-      // مراجعة الصفحات الحديثة (20)
-      row({
-        id:"reviewRecent20",
-        label: enabledDerived ? `مراجعة الصفحات الحديثة (20): ${recent20().join("، ")}` : "مراجعة الصفحات الحديثة (اختر صفحة أولاً)",
-        enabled: enabledDerived,
-        done: state.day.reviewRecent20.done
-      });
+      row({ id:"reviewRecent20", label: enabledDerived ? `مراجعة الصفحات الحديثة (20): ${recent20().join("، ")}` : "مراجعة الصفحات الحديثة (اختر صفحة أولاً)", enabled: enabledDerived, done: state.day.reviewRecent20.done });
 
       // مراجعة جزء قديم
       const oldExtra = `
         <div class="flex flex-col gap-1">
           <input id="inpOldJuz" type="number" min="1" max="30" value="${state.day.reviewOldJuz.juz??""}"
-                 class="border px-2 py-1 rounded ${t.input} w-24 text-center" />
-          <small class="opacity-70">${state.day.reviewOldJuz.juz ? `الجزء ${state.day.reviewOldJuz.juz} — الصفحات ${juzSpan(state.day.reviewOldJuz.juz).start}–${juzSpan(state.day.reviewOldJuz.juz).end}` :""}
-          </small>
+                 class="border px-2 py-1 rounded ${t.input} w-24 text-center" autocomplete="off" />
+          <small class="opacity-70">${state.day.reviewOldJuz.juz ? `الجزء ${state.day.reviewOldJuz.juz} — الصفحات ${juzSpan(state.day.reviewOldJuz.juz).start}–${juzSpan(state.day.reviewOldJuz.juz).end}` :""}</small>
+          <small class="text-xs text-cyan-400">يمكنك كتابة الرقم ثم الضغط Enter أو الخروج من الخانة</small>
         </div>`;
       row({ id:"reviewOldJuz", label:"مراجعة جزء قديم", extraHTML:oldExtra, enabled:true, done: state.day.reviewOldJuz.done });
 
-      // السبع المنجيات (7 subtoggles)
+      // السبع المنجيات
       const sabWrap = el(`
         <li class="p-3 rounded-xl border flex flex-col ${themeClasses(state.settings.theme).rowActive}">
           <div class="flex flex-col gap-2">
@@ -380,72 +337,38 @@
       });
       ul.appendChild(sabWrap);
 
-      // Wire up theme select
-      root.querySelector("#selTheme").onchange = e => {
-        state.settings.theme = e.target.value;
-        render();
-      };
-
-      // Wire up reset button
+      // --- Wire up theme select ---
+      root.querySelector("#selTheme").onchange = e => { state.settings.theme = e.target.value; render(); };
+      // --- Wire up reset button ---
       root.querySelector("#btnResetAll").onclick = () => {
-        // Reset all tasks
-        state.day.readJuz.done = false;
-        state.day.readJuz.juz = null;
-        state.day.memorizeToday.done = false;
-        state.todayPage = null;
-        state.day.reviewLast7.done = false;
-        state.day.prepNext7.done = false;
-        state.day.prepTomorrow.done = false;
-        state.day.prepTomorrow.count = 0;
+        state.day.readJuz.done = false; state.day.readJuz.juz = null;
+        state.day.memorizeToday.done = false; state.todayPage = null;
+        state.day.reviewLast7.done = false; state.day.prepNext7.done = false;
+        state.day.prepTomorrow.done = false; state.day.prepTomorrow.count = 0;
         state.day.reviewRecent20.done = false;
-        state.day.reviewOldJuz.done = false;
-        state.day.reviewOldJuz.juz = null;
+        state.day.reviewOldJuz.done = false; state.day.reviewOldJuz.juz = null;
         state.day.sabAlMunajiyat.subs = {};
         render();
       };
+      // --- Wire up improved input fields ---
+      wireInputField("inpReadJuz", "readJuz", 1, 30);
+      wireInputField("inpTodayPage", null, 1, 604);
+      wireInputField("inpOldJuz", "reviewOldJuz", 1, 30);
 
-      // Field inputs
-      const inpReadJuz = root.querySelector("#inpReadJuz");
-      if (inpReadJuz) inpReadJuz.oninput = (e) => {
-        const v = e.target.value === "" ? null : clamp(parseInt(e.target.value,10)||0, 1, 30);
-        state.day.readJuz.juz = v;
-        render();
-      };
-      const inpTodayPage = root.querySelector("#inpTodayPage");
-      if (inpTodayPage) inpTodayPage.oninput = (e) => {
-        const v = e.target.value === "" ? null : clamp(parseInt(e.target.value,10)||0, 1, 604);
-        state.todayPage = v;
-        state.day.reviewLast7.done = false;
-        state.day.prepNext7.done = false;
-        state.day.prepTomorrow.done = false;
-        state.day.prepTomorrow.count = 0;
-        state.day.reviewRecent20.done = false;
-        render();
-      };
-      const inpOldJuz = root.querySelector("#inpOldJuz");
-      if (inpOldJuz) inpOldJuz.oninput = (e) => {
-        const v = e.target.value === "" ? null : clamp(parseInt(e.target.value,10)||0, 1, 30);
-        state.day.reviewOldJuz.juz = v;
-        render();
-      };
-
-      // Toggles
+      // --- Toggles ---
       root.querySelectorAll("[data-toggle]").forEach(btn=>{
         btn.addEventListener("click", (e)=>{
           const id = e.currentTarget.getAttribute("data-toggle");
           if ((id==="reviewLast7"||id==="prepNext7"||id==="prepTomorrow"||id==="reviewRecent20") && !hasPage()) return;
-          state.day[id].done = !state.day[id].done;
-          render();
+          state.day[id].done = !state.day[id].done; render();
         });
       });
-
-      // Counters
+      // --- Counters ---
       root.querySelectorAll("[data-dec]").forEach(btn=>{
         btn.addEventListener("click",(e)=>{
           const id = e.currentTarget.getAttribute("data-dec");
           if (id==="prepTomorrow" && !hasPage()) return;
-          state.day[id].count = clamp((state.day[id].count||0)-1, 0, DEFAULT_READS_FOR_PREP);
-          render();
+          state.day[id].count = clamp((state.day[id].count||0)-1, 0, DEFAULT_READS_FOR_PREP); render();
         });
       });
       root.querySelectorAll("[data-inc]").forEach(btn=>{
@@ -453,15 +376,11 @@
           const id = e.currentTarget.getAttribute("data-inc");
           if (id==="prepTomorrow" && !hasPage()) return;
           state.day[id].count = clamp((state.day[id].count||0)+1, 0, DEFAULT_READS_FOR_PREP);
-          if (id==="prepTomorrow" && state.day.prepTomorrow.count >= DEFAULT_READS_FOR_PREP) {
-            state.day.prepTomorrow.done = true;
-          }
+          if (id==="prepTomorrow" && state.day.prepTomorrow.count >= DEFAULT_READS_FOR_PREP) state.day.prepTomorrow.done = true;
           render();
         });
       });
     }
-
-    // Initial render
     render();
   </script>
 </body>
