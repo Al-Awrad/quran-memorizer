@@ -14,21 +14,31 @@
     /* Small helper for visually-hidden inputs */
     .sr-only { position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border-width:0; }
     .tabular-nums { font-variant-numeric: tabular-nums; }
+    /* Animation for marking as done */
+    .row-animated {
+      transition: background 0.3s, border-color 0.3s, transform 0.3s;
+      animation: scaleUpFade 0.4s;
+    }
+    @keyframes scaleUpFade {
+      0%   { transform: scale(0.97); opacity: 0.7;}
+      60%  { transform: scale(1.05); opacity: 1;}
+      100% { transform: scale(1); opacity: 1;}
+    }
   </style>
 </head>
 <body>
   <!-- Safelist all theme classes so Tailwind CDN includes them -->
   <div class="hidden
-    bg-white text-black border-gray-200 bg-gray-900 text-white border-gray-800
-    bg-[#F5EFE3] text-[#0f2e1f] border-[#9db59c] bg-white/90
-    bg-[#0a0a0a] text-[#f5f2e8] border-[#3d2f12] bg-[#111111]/85
-    bg-gray-900/60 bg-gray-900 text-white border-gray-700 hover:bg-gray-800
-    bg-green-50 border-green-300 bg-emerald-900/30 border-emerald-600
-    bg-emerald-800 text-emerald-100 border-emerald-600
-    bg-[#EAF7E9] border-[#8CCB94] bg-[#DFF1E0] text-[#0f2e1f] border-[#8CCB94]
-    bg-[#141008] border-[#c9a227] bg-[#c9a227] text-black border-[#c9a227]
-    border-gray-300 hover:bg-gray-100 bg-white
-    hover:bg-[#EAF1E6]
+    bg-[#FAFAFA] text-[#222] border-[#E0E0E0] bg-white
+    bg-[#18181B] text-[#EEE] border-[#444] bg-[#23232A]
+    bg-green-100 border-green-400 text-green-900
+    bg-emerald-700/30 border-emerald-400 text-emerald-100
+    bg-green-200 text-green-900
+    bg-white border-gray-200 text-gray-800
+    bg-[#23232A] border-[#444] text-[#EEE]
+    border-green-400 text-green-500
+    border-emerald-400 text-emerald-400
+    hover:bg-[#F0F0F0] hover:bg-[#333]
   "></div>
 
   <div id="app" class="min-h-screen w-full"></div>
@@ -49,44 +59,30 @@
     };
     const SAB7 = ["السجدة","يس","الدخان","الواقعة","الملك","الإنسان","البروج"];
 
-    // Themes (class tokens)
+    // Themes (class tokens) - Only 2 themes: light & dark
     function themeClasses(theme) {
       switch (theme) {
         case "dark":
           return {
-            page: "bg-gray-900 text-white",
-            card: "border-gray-800 bg-gray-900/60",
-            input: "bg-gray-900 text-white border-gray-700",
-            button: "border-gray-700 hover:bg-gray-800",
-            rowDone: "bg-emerald-900/30 border-emerald-600",
-            chipOn: "bg-emerald-800 text-emerald-100 border-emerald-600",
+            page: "bg-[#18181B] text-[#EEE]",
+            card: "border-[#444] bg-[#23232A]",
+            input: "bg-[#23232A] text-[#EEE] border-[#444]",
+            button: "border-[#444] hover:bg-[#333]",
+            rowDone: "bg-emerald-700/30 border-emerald-400 text-emerald-100 row-animated",
+            rowActive: "bg-[#23232A] border-[#444] text-[#EEE]",
+            chipOn: "bg-emerald-700 text-emerald-100 border-emerald-400",
+            checkIcon: "text-emerald-400",
           };
-        case "nabawi":
+        default: // light
           return {
-            page: "bg-[#F5EFE3] text-[#0f2e1f]",
-            card: "border-[#9db59c] bg-white/90",
-            input: "bg-white text-[#0f2e1f] border-[#9db59c]",
-            button: "border-[#9db59c] hover:bg-[#EAF1E6]",
-            rowDone: "bg-[#EAF7E9] border-[#8CCB94]",
-            chipOn: "bg-[#DFF1E0] text-[#0f2e1f] border-[#8CCB94]",
-          };
-        case "kaaba":
-          return {
-            page: "bg-[#0a0a0a] text-[#f5f2e8]",
-            card: "border-[#3d2f12] bg-[#111111]/85",
-            input: "bg-[#111111] text-[#f5f2e8] border-[#5b4519]",
-            button: "border-[#8a6d2f] hover:bg-[#1a1a1a]",
-            rowDone: "bg-[#141008] border-[#c9a227]",
-            chipOn: "bg-[#c9a227] text-black border-[#c9a227]",
-          };
-        default:
-          return {
-            page: "bg-white text-black",
-            card: "border-gray-200 bg-white",
-            input: "bg-white text-black border-gray-300",
-            button: "border-gray-300 hover:bg-gray-100",
-            rowDone: "bg-green-50 border-green-300",
-            chipOn: "bg-emerald-100 text-emerald-900 border-emerald-300",
+            page: "bg-[#FAFAFA] text-[#222]",
+            card: "border-[#E0E0E0] bg-white",
+            input: "bg-white text-[#222] border-[#E0E0E0]",
+            button: "border-[#E0E0E0] hover:bg-[#F0F0F0]",
+            rowDone: "bg-green-100 border-green-400 text-green-900 row-animated",
+            rowActive: "bg-white border-gray-200 text-gray-800",
+            chipOn: "bg-green-200 text-green-900 border-green-400",
+            checkIcon: "text-green-500",
           };
       }
     }
@@ -105,6 +101,7 @@
         reviewOldJuz: { juz: null, done: false },
         sabAlMunajiyat: { subs: {} }, // indices 0..6 true/false
       },
+      _rowAnim: {}, // Track which rows were just completed for animation
     };
 
     // ===================== Derived Windows =====================
@@ -129,7 +126,6 @@
 
     // ===================== Progress =====================
     function completionCounts() {
-      // Enabled tasks: sab7 always enabled; readJuz/reviewOldJuz/memorizeToday enabled; the four page-dependent depend on todayPage
       const enabledTasks = [];
       const addTask = (id, count=1) => { enabledTasks.push({id, count}); };
       addTask("readJuz");
@@ -224,8 +220,6 @@
               <select id="selTheme" class="rounded-xl px-3 py-2 border ${t.input}">
                 <option value="light" ${state.settings.theme==="light"?"selected":""}>فاتح</option>
                 <option value="dark" ${state.settings.theme==="dark"?"selected":""}>داكن</option>
-                <option value="nabawi" ${state.settings.theme==="nabawi"?"selected":""}>مسجد نبوي</option>
-                <option value="kaaba" ${state.settings.theme==="kaaba"?"selected":""}>الكعبة</option>
               </select>
             </label>
             <div class="flex gap-2">
@@ -238,30 +232,42 @@
       // Build tasks list
       const ul = root.querySelector("#taskList");
 
+      // Track animation: if a row just transitioned to done, mark for animation
+      function animClass(id, done) {
+        // If row just became done, set animation for this render
+        if (!state._rowAnim[id]) state._rowAnim[id] = false;
+        if (done && !state._rowAnim[id]) {
+          state._rowAnim[id] = true;
+          return "row-animated";
+        }
+        if (!done) state._rowAnim[id] = false;
+        return "";
+      }
+
       // Helpers to draw rows
       const row = (opts) => {
         const { id, label, extraHTML="", enabled=true, done=false, hasCounter=false, count=0, target=3 } = opts;
         const faded = (!enabled) ? "opacity-50" : "";
-        const rowDone = done ? t.rowDone : "";
+        const rowClass = done ? `${t.rowDone} ${animClass(id, done)}` : t.rowActive;
+        const checkMark = done ? `<span class="mr-2 ${t.checkIcon} text-xl">✔️</span>` : "";
         const li = el(`
-          <li class="p-3 rounded-xl border ${t.button} ${rowDone} ${faded}">
-            <div class="flex flex-col gap-2">
-              <div class="flex items-center gap-3">
-                <span class="font-medium">${label}</span>
-                ${extraHTML}
-              </div>
-              ${hasCounter ? `
-                <div class="flex items-center gap-2">
-                  <button data-dec="${id}" ${!enabled?"disabled":""} class="p-1 rounded border ${t.button} ${!enabled?"opacity-60 cursor-not-allowed":""}">−</button>
-                  <div class="tabular-nums">${count} / ${target}</div>
-                  <button data-inc="${id}" ${!enabled?"disabled":""} class="p-1 rounded border ${t.button} ${!enabled?"opacity-60 cursor-not-allowed":""}">+</button>
-                </div>
-              `:``}
-              <button data-toggle="${id}" ${!enabled?"disabled":""}
-                class="px-3 py-1 rounded border ${t.button} ${rowDone} ${!enabled?"opacity-60 cursor-not-allowed":""}">
-                ✓ ${done ? "تم" : "إنهاء"}
-              </button>
+          <li class="p-3 rounded-xl border flex flex-col ${rowClass} ${faded}">
+            <div class="flex items-center gap-3">
+              ${checkMark}
+              <span class="font-medium">${label}</span>
+              ${extraHTML}
             </div>
+            ${hasCounter ? `
+              <div class="flex items-center gap-2 mt-2">
+                <button data-dec="${id}" ${!enabled?"disabled":""} class="p-1 rounded border ${t.button} ${!enabled?"opacity-60 cursor-not-allowed":""}">−</button>
+                <div class="tabular-nums">${count} / ${target}</div>
+                <button data-inc="${id}" ${!enabled?"disabled":""} class="p-1 rounded border ${t.button} ${!enabled?"opacity-60 cursor-not-allowed":""}">+</button>
+              </div>
+            `:``}
+            <button data-toggle="${id}" ${!enabled?"disabled":""}
+              class="mt-2 px-3 py-1 rounded border ${t.button} ${done?t.rowDone:""} ${!enabled?"opacity-60 cursor-not-allowed":""}">
+              ${done ? "✓ تم" : "إنهاء"}
+            </button>
           </li>
         `);
         ul.appendChild(li);
@@ -272,7 +278,8 @@
         <div class="flex flex-col gap-1">
           <input id="inpReadJuz" type="number" min="1" max="30" value="${state.day.readJuz.juz??""}"
                  class="border px-2 py-1 rounded ${t.input} w-24 text-center" />
-          <small class="opacity-70">${state.day.readJuz.juz ? `الجزء ${state.day.readJuz.juz} — الصفحات ${juzSpan(state.day.readJuz.juz).start}–${juzSpan(state.day.readJuz.juz).end}` : "اختر الجزء لعرض نطاق الصفحات"}</small>
+          <small class="opacity-70">${state.day.readJuz.juz ? `الجزء ${state.day.readJuz.juz} — الصفحات ${juzSpan(state.day.readJuz.juz).start}–${juzSpan(state.day.readJuz.juz).end}` :""}
+          </small>
         </div>`;
       row({ id:"readJuz", label:"قراءة الجزء اليومي", extraHTML:juzExtra, enabled:true, done: state.day.readJuz.done });
 
@@ -325,13 +332,14 @@
         <div class="flex flex-col gap-1">
           <input id="inpOldJuz" type="number" min="1" max="30" value="${state.day.reviewOldJuz.juz??""}"
                  class="border px-2 py-1 rounded ${t.input} w-24 text-center" />
-          <small class="opacity-70">${state.day.reviewOldJuz.juz ? `الجزء ${state.day.reviewOldJuz.juz} — الصفحات ${juzSpan(state.day.reviewOldJuz.juz).start}–${juzSpan(state.day.reviewOldJuz.juz).end}` : "اختر الجزء لعرض نطاق الصفحات"}</small>
+          <small class="opacity-70">${state.day.reviewOldJuz.juz ? `الجزء ${state.day.reviewOldJuz.juz} — الصفحات ${juzSpan(state.day.reviewOldJuz.juz).start}–${juzSpan(state.day.reviewOldJuz.juz).end}` :""}
+          </small>
         </div>`;
       row({ id:"reviewOldJuz", label:"مراجعة جزء قديم", extraHTML:oldExtra, enabled:true, done: state.day.reviewOldJuz.done });
 
       // السبع المنجيات (7 subtoggles)
       const sabWrap = el(`
-        <li class="p-3 rounded-xl border ${themeClasses(state.settings.theme).button}">
+        <li class="p-3 rounded-xl border flex flex-col ${themeClasses(state.settings.theme).rowActive}">
           <div class="flex flex-col gap-2">
             <div class="font-medium">قراءة السبع المنجيات</div>
             <div class="flex flex-wrap gap-2" id="sabChips"></div>
@@ -345,10 +353,10 @@
       SAB7.forEach((name, idx) => {
         const checked = !!state.day.sabAlMunajiyat.subs[idx];
         const chip = el(`
-          <label class="inline-flex items-center gap-1 px-3 py-1 rounded-xl border ${t.button} ${checked? t.chipOn : ""} cursor-pointer select-none">
+          <label class="inline-flex items-center gap-1 px-3 py-1 rounded-xl border ${themeClasses(state.settings.theme).button} ${checked? themeClasses(state.settings.theme).chipOn : ""} cursor-pointer select-none">
             <input type="checkbox" class="sr-only">
             <span class="ml-1">${name}</span>
-            ${checked? `<span>✓</span>` : ``}
+            ${checked? `<span class="${themeClasses(state.settings.theme).checkIcon}">✔️</span>` : ``}
           </label>
         `);
         chip.querySelector("input").checked = checked;
