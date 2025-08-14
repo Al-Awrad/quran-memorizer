@@ -7,14 +7,11 @@
   <!-- Tailwind CDN (no build step) -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
-    // Tailwind: nothing fancy, we’ll safelist classes by rendering them once in a hidden node below.
     tailwind.config = { theme: { extend: {} } };
   </script>
   <style>
-    /* Small helper for visually-hidden inputs */
     .sr-only { position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border-width:0; }
     .tabular-nums { font-variant-numeric: tabular-nums; }
-    /* Animation for marking as done */
     .row-animated {
       transition: background 0.3s, border-color 0.3s, transform 0.3s;
       animation: scaleUpFade 0.4s;
@@ -24,14 +21,17 @@
       60%  { transform: scale(1.05); opacity: 1;}
       100% { transform: scale(1); opacity: 1;}
     }
+    /* Custom scrollbar for cards */
+    ::-webkit-scrollbar { width: 8px; }
+    ::-webkit-scrollbar-thumb { background: #c9a22744; border-radius: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
   </style>
 </head>
 <body>
-  <!-- Safelist all theme classes so Tailwind CDN includes them -->
   <div class="hidden
     bg-[#FAFAFA] text-[#222] border-[#E0E0E0] bg-white
     bg-[#18181B] text-[#EEE] border-[#444] bg-[#23232A]
-    bg-green-100 border-green-400 text-green-900
+    bg-green-50 border-green-400 text-green-900 bg-green-100
     bg-emerald-700/30 border-emerald-400 text-emerald-100
     bg-green-200 text-green-900
     bg-white border-gray-200 text-gray-800
@@ -39,29 +39,61 @@
     border-green-400 text-green-500
     border-emerald-400 text-emerald-400
     hover:bg-[#F0F0F0] hover:bg-[#333]
+    bg-gradient-to-br from-green-100 via-emerald-100 to-yellow-50
+    bg-gradient-to-br from-blue-100 via-indigo-100 to-yellow-50
+    border-[#bfa850] text-[#0f2e1f]
+    border-[#3d7f9e] text-[#233d6b]
+    bg-[#FAF7EC] text-[#0f2e1f]
+    bg-[#EAF7E9] text-[#0f2e1f]
+    bg-[#DFF1E0] text-[#0f2e1f]
+    bg-[#f6eeb7] text-[#9d7d28]
+    bg-[#e1eaff] text-[#233d6b]
   "></div>
 
   <div id="app" class="min-h-screen w-full"></div>
 
   <script>
-    // ===================== Helpers & Constants =====================
+    // ===================== Constants =====================
     const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
     const wrap604 = (n) => (((n - 1) % 604) + 604) % 604 + 1;
-    const JUZ_START_PAGES = [
-      1, 22, 42, 62, 82, 102, 121, 142, 162, 182,
-      201, 222, 242, 262, 282, 302, 322, 342, 362, 382,
-      402, 422, 442, 462, 482, 502, 522, 542, 562, 582,
-    ];
+    const JUZ_START_PAGES = [1,22,42,62,82,102,121,142,162,182,201,222,242,262,282,302,322,342,362,382,402,422,442,462,482,502,522,542,562,582];
     const juzSpan = (j) => {
       const start = JUZ_START_PAGES[j - 1];
       const end = j === 30 ? 604 : JUZ_START_PAGES[j] - 1;
       return { start, end };
     };
     const SAB7 = ["السجدة","يس","الدخان","الواقعة","الملك","الإنسان","البروج"];
+    const DEFAULT_READS_FOR_PREP = 10;
 
-    // Themes (class tokens) - Only 2 themes: light & dark
+    // ===================== Themes =====================
     function themeClasses(theme) {
       switch (theme) {
+        case "green-gold":
+          return {
+            page: "bg-gradient-to-br from-green-100 via-emerald-100 to-yellow-50 text-[#0f2e1f]",
+            card: "bg-[#FAF7EC] border-[#bfa850] text-[#0f2e1f]",
+            input: "bg-white text-[#0f2e1f] border-[#bfa850]",
+            button: "border-[#bfa850] hover:bg-[#f6eeb7]",
+            rowDone: "bg-[#EAF7E9] border-green-500 text-green-900 row-animated",
+            rowActive: "bg-white border-[#bfa850] text-[#0f2e1f]",
+            chipOn: "bg-[#DFF1E0] text-[#0f2e1f] border-green-500",
+            checkIcon: "text-green-500",
+            resetBtn: "bg-green-100 border-green-500 text-green-900 hover:bg-green-200",
+            select: "border-[#bfa850] bg-white text-[#0f2e1f]",
+          };
+        case "blue-gold":
+          return {
+            page: "bg-gradient-to-br from-blue-100 via-indigo-100 to-yellow-50 text-[#233d6b]",
+            card: "bg-[#e1eaff] border-[#3d7f9e] text-[#233d6b]",
+            input: "bg-white text-[#233d6b] border-[#3d7f9e]",
+            button: "border-[#3d7f9e] hover:bg-[#e1eaff]",
+            rowDone: "bg-[#e1eaff] border-indigo-500 text-indigo-900 row-animated",
+            rowActive: "bg-white border-[#3d7f9e] text-[#233d6b]",
+            chipOn: "bg-indigo-100 text-indigo-900 border-indigo-500",
+            checkIcon: "text-indigo-500",
+            resetBtn: "bg-blue-100 border-indigo-500 text-indigo-900 hover:bg-blue-200",
+            select: "border-[#3d7f9e] bg-white text-[#233d6b]",
+          };
         case "dark":
           return {
             page: "bg-[#18181B] text-[#EEE]",
@@ -72,6 +104,8 @@
             rowActive: "bg-[#23232A] border-[#444] text-[#EEE]",
             chipOn: "bg-emerald-700 text-emerald-100 border-emerald-400",
             checkIcon: "text-emerald-400",
+            resetBtn: "bg-[#23232A] border-emerald-400 text-emerald-100 hover:bg-[#18181B]",
+            select: "border-[#444] bg-[#23232A] text-[#EEE]",
           };
         default: // light
           return {
@@ -83,25 +117,27 @@
             rowActive: "bg-white border-gray-200 text-gray-800",
             chipOn: "bg-green-200 text-green-900 border-green-400",
             checkIcon: "text-green-500",
+            resetBtn: "bg-gray-100 border-gray-400 text-gray-900 hover:bg-gray-200",
+            select: "border-[#E0E0E0] bg-white text-[#222]",
           };
       }
     }
 
-    // ===================== Ephemeral State (no persistence) =====================
+    // ===================== State =====================
     const state = {
-      settings: { theme: "light", targetReadsForPrep: 3 },
+      settings: { theme: "green-gold" }, // default theme
       todayPage: null, // 1..604
       day: {
         readJuz: { juz: null, done: false },
         memorizeToday: { done: false },
         reviewLast7: { done: false },
         prepNext7: { done: false },
-        prepTomorrow: { count: 0, done: false }, // done if count >= target
+        prepTomorrow: { count: 0, done: false },
         reviewRecent20: { done: false },
         reviewOldJuz: { juz: null, done: false },
         sabAlMunajiyat: { subs: {} }, // indices 0..6 true/false
       },
-      _rowAnim: {}, // Track which rows were just completed for animation
+      _rowAnim: {},
     };
 
     // ===================== Derived Windows =====================
@@ -137,7 +173,7 @@
         addTask("reviewRecent20");
       }
       addTask("reviewOldJuz");
-      addTask("sabAlMunajiyat", 7); // 7 subtasks
+      addTask("sabAlMunajiyat", 7);
 
       let total=0, done=0;
       for (const t of enabledTasks) {
@@ -146,7 +182,7 @@
           for (let i=0;i<7;i++) if (state.day.sabAlMunajiyat.subs[i]) done += 1;
         } else if (t.id === "prepTomorrow") {
           total += 1;
-          done += (state.day.prepTomorrow.done || state.day.prepTomorrow.count >= state.settings.targetReadsForPrep) ? 1 : 0;
+          done += (state.day.prepTomorrow.done || state.day.prepTomorrow.count >= DEFAULT_READS_FOR_PREP) ? 1 : 0;
         } else {
           total += 1;
           done += state.day[t.id].done ? 1 : 0;
@@ -157,7 +193,6 @@
 
     // ===================== Render =====================
     const root = document.getElementById("app");
-
     function el(html) {
       const t = document.createElement("template");
       t.innerHTML = html.trim();
@@ -176,8 +211,14 @@
               <h1 class="text-2xl sm:text-3xl font-bold">برنامج الحفظ اليومي للقرآن</h1>
             </div>
             <div class="flex items-center gap-2">
-              <button id="btnSettings" class="px-3 py-2 rounded-xl border ${t.button}">
-                ⚙️ <span class="mr-1">إعدادات</span>
+              <select id="selTheme" class="px-3 py-2 rounded-xl ${t.select}">
+                <option value="green-gold" ${state.settings.theme==="green-gold"?"selected":""}>أخضر وذهبي</option>
+                <option value="blue-gold" ${state.settings.theme==="blue-gold"?"selected":""}>أزرق وذهبي</option>
+                <option value="light" ${state.settings.theme==="light"?"selected":""}>فاتح</option>
+                <option value="dark" ${state.settings.theme==="dark"?"selected":""}>داكن</option>
+              </select>
+              <button id="btnResetAll" class="px-3 py-2 rounded-xl border ${t.resetBtn}">
+                🔄 إعادة ضبط اليوم
               </button>
             </div>
           </header>
@@ -205,36 +246,11 @@
             <ul class="space-y-3" id="taskList"></ul>
           </div>
         </div>
-
-        <!-- Settings modal -->
-        <div id="modal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm items-center justify-center p-4">
-          <div class="w-full max-w-xl rounded-2xl p-5 border ${t.card}">
-            <h2 class="text-xl font-bold mb-4">إعدادات</h2>
-            <label class="flex flex-col gap-1 mb-3">
-              <span>عدد مرات قراءة صفحة الغد (3–10)</span>
-              <input id="inpTarget" type="number" min="3" max="10" value="${state.settings.targetReadsForPrep}"
-                     class="rounded-xl px-3 py-2 border ${t.input}" />
-            </label>
-            <label class="flex flex-col gap-1 mb-4">
-              <span>السِمَة</span>
-              <select id="selTheme" class="rounded-xl px-3 py-2 border ${t.input}">
-                <option value="light" ${state.settings.theme==="light"?"selected":""}>فاتح</option>
-                <option value="dark" ${state.settings.theme==="dark"?"selected":""}>داكن</option>
-              </select>
-            </label>
-            <div class="flex gap-2">
-              <button id="btnClose" class="px-4 py-2 rounded-xl border ${t.button}">تم</button>
-            </div>
-          </div>
-        </div>
       `;
 
       // Build tasks list
       const ul = root.querySelector("#taskList");
-
-      // Track animation: if a row just transitioned to done, mark for animation
       function animClass(id, done) {
-        // If row just became done, set animation for this render
         if (!state._rowAnim[id]) state._rowAnim[id] = false;
         if (done && !state._rowAnim[id]) {
           state._rowAnim[id] = true;
@@ -244,9 +260,8 @@
         return "";
       }
 
-      // Helpers to draw rows
       const row = (opts) => {
-        const { id, label, extraHTML="", enabled=true, done=false, hasCounter=false, count=0, target=3 } = opts;
+        const { id, label, extraHTML="", enabled=true, done=false, hasCounter=false, count=0, target=DEFAULT_READS_FOR_PREP } = opts;
         const faded = (!enabled) ? "opacity-50" : "";
         const rowClass = done ? `${t.rowDone} ${animClass(id, done)}` : t.rowActive;
         const checkMark = done ? `<span class="mr-2 ${t.checkIcon} text-xl">✔️</span>` : "";
@@ -308,15 +323,15 @@
         done: state.day.prepNext7.done
       });
 
-      // تهيئة صفحة الغد (counter)
+      // تهيئة صفحة الغد (counter, always target 10)
       row({
         id:"prepTomorrow",
-        label: enabledDerived ? `تهيئة صفحة الغد (${tomorrowPage()}) (3–10 مرات)` : "تهيئة صفحة الغد (اختر صفحة أولاً)",
+        label: enabledDerived ? `تهيئة صفحة الغد (${tomorrowPage()}) (10 مرات)` : "تهيئة صفحة الغد (اختر صفحة أولاً)",
         enabled: enabledDerived,
-        done: state.day.prepTomorrow.done || (state.day.prepTomorrow.count >= state.settings.targetReadsForPrep),
+        done: state.day.prepTomorrow.done || (state.day.prepTomorrow.count >= DEFAULT_READS_FOR_PREP),
         hasCounter: true,
         count: state.day.prepTomorrow.count,
-        target: state.settings.targetReadsForPrep
+        target: DEFAULT_READS_FOR_PREP
       });
 
       // مراجعة الصفحات الحديثة (20)
@@ -343,9 +358,6 @@
           <div class="flex flex-col gap-2">
             <div class="font-medium">قراءة السبع المنجيات</div>
             <div class="flex flex-wrap gap-2" id="sabChips"></div>
-            <div>
-              <button id="sabReset" class="text-xs underline opacity-80">إعادة ضبط اختيارات اليوم</button>
-            </div>
           </div>
         </li>
       `);
@@ -368,25 +380,29 @@
       });
       ul.appendChild(sabWrap);
 
-      // ===== Wire up inputs & buttons =====
-      // Settings
-      root.querySelector("#btnSettings").onclick = () => {
-        const m = root.querySelector("#modal");
-        m.classList.remove("hidden");
-        m.classList.add("flex");
+      // Wire up theme select
+      root.querySelector("#selTheme").onchange = e => {
+        state.settings.theme = e.target.value;
+        render();
       };
-      const modal = root.querySelector("#modal");
-      if (modal) {
-        modal.querySelector("#btnClose").onclick = () => {
-          const target = clamp(parseInt(modal.querySelector("#inpTarget").value || "3", 10), 3, 10);
-          const theme = modal.querySelector("#selTheme").value;
-          state.settings.targetReadsForPrep = target;
-          state.settings.theme = theme;
-          modal.classList.add("hidden");
-          modal.classList.remove("flex");
-          render();
-        };
-      }
+
+      // Wire up reset button
+      root.querySelector("#btnResetAll").onclick = () => {
+        // Reset all tasks
+        state.day.readJuz.done = false;
+        state.day.readJuz.juz = null;
+        state.day.memorizeToday.done = false;
+        state.todayPage = null;
+        state.day.reviewLast7.done = false;
+        state.day.prepNext7.done = false;
+        state.day.prepTomorrow.done = false;
+        state.day.prepTomorrow.count = 0;
+        state.day.reviewRecent20.done = false;
+        state.day.reviewOldJuz.done = false;
+        state.day.reviewOldJuz.juz = null;
+        state.day.sabAlMunajiyat.subs = {};
+        render();
+      };
 
       // Field inputs
       const inpReadJuz = root.querySelector("#inpReadJuz");
@@ -399,7 +415,6 @@
       if (inpTodayPage) inpTodayPage.oninput = (e) => {
         const v = e.target.value === "" ? null : clamp(parseInt(e.target.value,10)||0, 1, 604);
         state.todayPage = v;
-        // Reset derived row finishes when page changes
         state.day.reviewLast7.done = false;
         state.day.prepNext7.done = false;
         state.day.prepTomorrow.done = false;
@@ -418,7 +433,6 @@
       root.querySelectorAll("[data-toggle]").forEach(btn=>{
         btn.addEventListener("click", (e)=>{
           const id = e.currentTarget.getAttribute("data-toggle");
-          // Ignore clicks if the row is effectively disabled by page requirement
           if ((id==="reviewLast7"||id==="prepNext7"||id==="prepTomorrow"||id==="reviewRecent20") && !hasPage()) return;
           state.day[id].done = !state.day[id].done;
           render();
@@ -430,7 +444,7 @@
         btn.addEventListener("click",(e)=>{
           const id = e.currentTarget.getAttribute("data-dec");
           if (id==="prepTomorrow" && !hasPage()) return;
-          state.day[id].count = clamp((state.day[id].count||0)-1, 0, 10);
+          state.day[id].count = clamp((state.day[id].count||0)-1, 0, DEFAULT_READS_FOR_PREP);
           render();
         });
       });
@@ -438,18 +452,13 @@
         btn.addEventListener("click",(e)=>{
           const id = e.currentTarget.getAttribute("data-inc");
           if (id==="prepTomorrow" && !hasPage()) return;
-          state.day[id].count = clamp((state.day[id].count||0)+1, 0, 10);
-          // auto mark done if reached target
-          if (id==="prepTomorrow" && state.day.prepTomorrow.count >= state.settings.targetReadsForPrep) {
+          state.day[id].count = clamp((state.day[id].count||0)+1, 0, DEFAULT_READS_FOR_PREP);
+          if (id==="prepTomorrow" && state.day.prepTomorrow.count >= DEFAULT_READS_FOR_PREP) {
             state.day.prepTomorrow.done = true;
           }
           render();
         });
       });
-
-      // Sab reset
-      const sabReset = root.querySelector("#sabReset");
-      if (sabReset) sabReset.onclick = () => { state.day.sabAlMunajiyat.subs = {}; render(); };
     }
 
     // Initial render
