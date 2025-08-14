@@ -117,6 +117,7 @@
         sabAlMunajiyat: { subs: {} },
       },
       _rowAnim: {},
+      _inputs: {}, // For improved input field tracking
     };
 
     // --- Derived Windows ---
@@ -251,23 +252,51 @@
         ul.appendChild(li);
       };
 
-      // --- Input fix: only re-render on blur or Enter ---
-      function wireInputField(id, prop, min, max) {
+      // --- Input fix: only re-render on blur or Enter --- (and preserve last entered value)
+      function wireInputField(id, prop, min, max, stateKey) {
         const inp = root.querySelector(`#${id}`);
         if (!inp) return;
-        inp.value = state.day[prop]?.[id] ?? state.day[prop]?.juz ?? state[prop] ?? "";
+        // Show current value: from state._inputs if available, else from main state
+        inp.value = state._inputs[id] !== undefined ? state._inputs[id] :
+                    prop ? state.day[prop].juz ?? "" :
+                    state[stateKey] ?? "";
         inp.oninput = (e) => {
-          // Store value but do not re-render
+          // Store input value in state._inputs for temporary edit
+          state._inputs[id] = e.target.value;
+          // Update state as user types
           const v = e.target.value === "" ? null : clamp(parseInt(e.target.value,10)||0, min, max);
-          if (prop === "readJuz" || prop === "reviewOldJuz") {
+          if (prop) {
             state.day[prop].juz = v;
-          } else if (id === "inpTodayPage") {
-            state.todayPage = v;
+          } else if (stateKey) {
+            state[stateKey] = v;
           }
         };
-        inp.onblur = (e) => { render(); };
+        inp.onblur = (e) => {
+          // Commit value to main state and clear _inputs
+          if (state._inputs[id] !== undefined) {
+            const v = state._inputs[id] === "" ? null : clamp(parseInt(state._inputs[id],10)||0, min, max);
+            if (prop) {
+              state.day[prop].juz = v;
+            } else if (stateKey) {
+              state[stateKey] = v;
+            }
+            delete state._inputs[id];
+            render();
+          }
+        };
         inp.onkeydown = (e) => {
-          if (e.key === "Enter") { render(); }
+          if (e.key === "Enter") {
+            if (state._inputs[id] !== undefined) {
+              const v = state._inputs[id] === "" ? null : clamp(parseInt(state._inputs[id],10)||0, min, max);
+              if (prop) {
+                state.day[prop].juz = v;
+              } else if (stateKey) {
+                state[stateKey] = v;
+              }
+              delete state._inputs[id];
+              render();
+            }
+          }
         };
       }
 
@@ -351,9 +380,9 @@
         render();
       };
       // --- Wire up improved input fields ---
-      wireInputField("inpReadJuz", "readJuz", 1, 30);
-      wireInputField("inpTodayPage", null, 1, 604);
-      wireInputField("inpOldJuz", "reviewOldJuz", 1, 30);
+      wireInputField("inpReadJuz", "readJuz", 1, 30, null);
+      wireInputField("inpTodayPage", null, 1, 604, "todayPage");
+      wireInputField("inpOldJuz", "reviewOldJuz", 1, 30, null);
 
       // --- Toggles ---
       root.querySelectorAll("[data-toggle]").forEach(btn=>{
